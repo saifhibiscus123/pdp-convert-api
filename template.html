@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>PDP Image</title>
+  <style>
+    body { font-family: Arial; width: 480px; padding: 32px; border-radius: 16px; background: #fafbfc; }
+    .img { width: 180px; height: 180px; object-fit: contain; border: 2px solid #eee; border-radius: 12px;}
+    .title { font-size: 24px; font-weight: bold; margin-top: 16px;}
+    .brand { margin-top: 4px; color: #666; }
+    .price { font-size: 22px; color: #0ab15b; font-weight: bold;}
+    .stock { font-weight: bold; margin: 8px 0; }
+    .stock span { padding: 4px 8px; border-radius: 6px; }
+    .stock .available { background-color: #d4edda; color: #155724; }
+    .stock .outofstock { background-color: #f8d7da; color: #721c24; }
+    .eta { margin-left: 8px; font-style: italic; color: #007bff; }
+    .desc { margin: 8px 0; }
+    .highlights { margin-top: 8px; }
+    ul { margin: 0; padding-left: 18px; }
+  </style>
+</head>
+<body>
+  <img class="img" src="{{imageUrl}}" />
+  <div class="title">{{title}}</div>
+  <div class="brand">Brand: {{brand}}</div>
+  {{#price}}<div class="price">₹{{price}}</div>{{/price}}
+  {{#stock}}
+  <div class="stock">
+    <span class="{{#available}}available{{/available}}{{^available}}outofstock{{/available}}">
+      {{stock}}
+    </span>
+    {{#eta}}<span class="eta">({{eta}})</span>{{/eta}}
+  </div>
+  {{/stock}}
+  <div class="desc">{{description}}</div>
+  <div>
+    Highlights:
+    <ul>
+      {{#highlights}}<li>{{.}}</li>{{/highlights}}
+    </ul>
+  </div>
+</body>
+</html>
