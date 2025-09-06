@@ -1,18 +1,19 @@
 {
   "name": "pdp-convert-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A service to convert JSON to PDP PNG using Puppeteer",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "express": "^5.1.0",
-    "multer": "^2.0.2",
-    "mustache": "^4.2.0",
-    "puppeteer": "^24.18.0"
-  }
+    "express": "^4.18.2",
+    "puppeteer": "^20.8.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Your Name",
+  "license": "MIT"
 }
