@@ -1,19 +1,29 @@
 # Node dependencies
 node_modules/
+
 # Puppeteer cache and browser binaries
 .cache/
+
 # Build output (if any)
 dist/
 build/
+
 # Logs
 *.log
+
 # OS files
 .DS_Store
 Thumbs.db
+
 # Environment files
 .env
+
 # IDE/editor configs
 .vscode/
 .idea/
+
 # Temporary files
 *.tmp
+
+# Ignore all DLL files (Windows binaries)
+*.dll
