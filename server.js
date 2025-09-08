@@ -1,104 +1,58 @@
 const express = require('express');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const mustache = require('mustache');
 const puppeteer = require('puppeteer');
-const cors = require('cors');
+const universalParser = require('./productParser');
 
 const app = express();
-const upload = multer();
+const upload = multer({ dest: 'uploads/' });
 
-app.use(cors());
-app.use(express.json()); // optional, for JSON bodies besides file uploads
-
-let browser = null;
-const maxConcurrent = 2;
-let activeCount = 0;
-const queue = [];
-
-async function launchBrowser() {
-  if (!browser) {
-    try {
-      browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        headless: true,
-        protocolTimeout: 120000
-      });
-      console.log('Puppeteer launched!');
-    } catch (err) {
-      console.error('Failed to launch Puppeteer:', err);
-      throw err;
-    }
-  }
-}
-
-function processQueue() {
-  if (activeCount < maxConcurrent && queue.length) {
-    activeCount++;
-    const next = queue.shift();
-    next().finally(() => {
-      activeCount--;
-      processQueue();
-    });
-  }
-}
-
-app.post('/generate-pdp', upload.single('file'), (req, res) => {
-  queue.push(async () => {
-    try {
-      await launchBrowser();
-
-      if (!req.file) {
-        console.error('No file uploaded');
-        res.status(400).send('No JSON file uploaded');
-        return;
-      }
-
-      let jsonString = req.file.buffer.toString();
-      console.log('Uploaded JSON:', jsonString);
-
-      let jsonData;
-      try {
-        jsonData = JSON.parse(jsonString);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        res.status(400).send('Invalid JSON file');
-        return;
-      }
-
-      const htmlContent = mustache.render('<h1>Hello, {{name}}</h1>', jsonData);
-      const page = await browser.newPage();
-      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-      const pngBuffer = await page.screenshot({ type: 'png' });
-      await page.close();
-
-      res.set('Content-Type', 'image/png');
-      res.send(pngBuffer);
-    } catch (err) {
-      console.error('Error generating PDP:', err);
-      res.status(500).send('Could not generate PDP image.');
-    }
-  });
-
-  processQueue();
+app.get('/', (req, res) => {
+  res.send(`
+    <h2>Upload product JSON or HTML file to generate PDP image</h2>
+    <form action="/generate-pdp" method="post" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".json,.html" required/><br/><br/>
+      <button type="submit">Generate PDP Image</button>
+    </form>
+  `);
 });
 
-app.get('/', (req, res) => res.send('PDP Convert API Running!'));
+app.post('/generate-pdp', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No file uploaded.');
+  }
+  const uploadedFilePath = path.join(__dirname, req.file.path);
+  const fileContent = fs.readFileSync(uploadedFilePath, 'utf8');
+  fs.unlinkSync(uploadedFilePath);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
+  // Get product details (universal parser)
+  const productData = universalParser(fileContent);
+
+  // Render HTML from template
+  const template = fs.readFileSync(path.join(__dirname, 'template.html'), 'utf8');
+  const html = mustache.render(template, productData);
+
+  // Generate image with puppeteer
   try {
-    await launchBrowser();
-    console.log(`Server started at http://0.0.0.0:${PORT}`);
-  } catch (err) {
-    console.error('Server failed to start:', err);
-    process.exit(1);
+    const browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox'] });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setViewport({ width: 600, height: 650 });
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const screenshot = await page.screenshot({ type: 'png' });
+    await browser.close();
+
+    res.set('Content-Type', 'image/png');
+    res.set('Content-Disposition', 'attachment; filename="pdp-image.png"');
+    res.send(screenshot);
+  } catch (e) {
+    res.status(500).send('Could not generate PDP image. ' + e.toString());
   }
 });
 
-process.on('SIGINT', async () => {
-  if (browser) {
-    await browser.close();
-    console.log('Browser closed gracefully');
-  }
-  process.exit(0);
+const PORT = 3000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server started at http://0.0.0.0:${PORT}`);
 });
