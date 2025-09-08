@@ -2,14 +2,15 @@ const express = require('express');
 const multer = require('multer');
 const mustache = require('mustache');
 const puppeteer = require('puppeteer');
+const cors = require('cors');
 
-// Create Express app
 const app = express();
-const upload = multer(); // For parsing multipart/form-data
+const upload = multer();
+app.use(cors()); // Allow all cross-origin requests (adjust for security)
 
-// Shared browser instance for all requests:
+// Shared Puppeteer browser instance
 let browser = null;
-const maxConcurrent = 2; // Limit to 2 jobs at a time
+const maxConcurrent = 2;
 let activeCount = 0;
 const queue = [];
 
@@ -18,13 +19,12 @@ async function launchBrowser() {
     browser = await puppeteer.launch({
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
       headless: true,
-      protocolTimeout: 120000 // 2 min, adjust as needed
+      protocolTimeout: 120000
     });
     console.log('Puppeteer launched!');
   }
 }
 
-// Process the request queue (keeps 2 in progress, rest are queued)
 function processQueue() {
   if (activeCount < maxConcurrent && queue.length) {
     activeCount++;
@@ -33,27 +33,41 @@ function processQueue() {
   }
 }
 
-// Endpoint to upload JSON and generate PNG
 app.post('/generate-pdp', upload.single('file'), (req, res) => {
   queue.push(async () => {
     try {
       await launchBrowser();
 
-      // Your JSON process logic (adjust as needed):
-      const jsonData = req.file ? JSON.parse(req.file.buffer.toString()) : {};
-      // Let's say you use a mustache template to render HTML:
+      if (!req.file) {
+        res.status(400).send('No JSON file uploaded');
+        activeCount--;
+        processQueue();
+        return;
+      }
+
+      let jsonData;
+      try {
+        jsonData = JSON.parse(req.file.buffer.toString());
+      } catch (parseError) {
+        res.status(400).send('Invalid JSON file');
+        activeCount--;
+        processQueue();
+        return;
+      }
+
+      // Example mustache template, customize as needed
       const htmlContent = mustache.render('<h1>Hello, {{name}}</h1>', jsonData);
 
       const page = await browser.newPage();
       await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-      // Wait for rendering, then take screenshot as PNG:
       const pngBuffer = await page.screenshot({ type: 'png' });
       await page.close();
 
       res.set('Content-Type', 'image/png');
       res.send(pngBuffer);
+
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error generating PDP:', err);
       res.status(500).send('Could not generate PDP image.');
     }
     activeCount--;
@@ -62,10 +76,8 @@ app.post('/generate-pdp', upload.single('file'), (req, res) => {
   processQueue();
 });
 
-// Root endpoint
 app.get('/', (req, res) => res.send('PDP Convert API Running!'));
 
-// Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   await launchBrowser();
