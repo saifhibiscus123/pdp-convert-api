@@ -48,14 +48,19 @@ app.post('/generate-pdp', upload.single('file'), (req, res) => {
       await launchBrowser();
 
       if (!req.file) {
+        console.error('No file uploaded');
         res.status(400).send('No JSON file uploaded');
         return;
       }
 
+      let jsonString = req.file.buffer.toString();
+      console.log('Uploaded JSON:', jsonString);
+
       let jsonData;
       try {
-        jsonData = JSON.parse(req.file.buffer.toString());
+        jsonData = JSON.parse(jsonString);
       } catch (parseError) {
+        console.error('JSON parse error:', parseError);
         res.status(400).send('Invalid JSON file');
         return;
       }
